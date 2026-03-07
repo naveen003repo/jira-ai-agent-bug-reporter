@@ -34,15 +34,20 @@ Vercel is the best place to host this FastAPI + Vanilla JS application.
 3.  Search for your repository `jira-ai-bug-reporter-Agent` and click **"Import"**.
 
 ### Step B: Configure Environment Variables
-Before clicking "Deploy", you must add your keys so the app can talk to Groq and JIRA.
+Before clicking "Deploy", you can add global keys that everyone will use by default.
+
+> [!NOTE]
+> **Who provides the keys?**
+> - **Global Keys (Vercel)**: If you add keys in Vercel, *everyone* who uses your link will use these keys by default.
+> - **Individual Keys (User Settings)**: If you leave these blank in Vercel, every user *must* enter their own keys in the app's **Settings** tab. Even if you provide global keys, a user can still override them with their own private keys in the app.
 
 1.  Find the **"Environment Variables"** section.
-2.  Add the following **Keys** and their **Values**:
-    - `GROQ_API_KEY`: (Your Groq API Key)
-    - `JIRA_URL`: (e.g., `https://yourname.atlassian.net`)
-    - `JIRA_EMAIL`: (Your JIRA login email)
-    - `JIRA_API_TOKEN`: (Your JIRA API Token)
-    - `JIRA_PROJECT`: (Your JIRA Project Key, e.g., `KAN`)
+2.  Add the following **Keys** (Values are optional if you want users to use their own):
+    - `GROQ_API_KEY`
+    - `JIRA_URL`
+    - `JIRA_EMAIL`
+    - `JIRA_API_TOKEN`
+    - `JIRA_PROJECT`
 
 ### Step C: Deploy
 1.  Click **"Deploy"**.
