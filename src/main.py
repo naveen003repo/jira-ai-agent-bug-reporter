@@ -12,9 +12,9 @@ from typing import List
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from .config import load_settings, save_settings, get_masked_settings
-from .groq_client import analyze_bug
-from .jira_client import test_connection, create_issue
+from src.config import load_settings, save_settings, get_masked_settings
+from src.groq_client import analyze_bug
+from src.jira_client import test_connection, create_issue
 
 # Load .env file if present
 load_dotenv(Path(__file__).parent.parent / ".env")

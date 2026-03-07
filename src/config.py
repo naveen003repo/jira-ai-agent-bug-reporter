@@ -52,8 +52,12 @@ def load_settings() -> dict:
 
 def save_settings(settings: dict) -> None:
     """Persist settings to settings.json."""
-    with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
-        json.dump(settings, f, indent=2)
+    try:
+        with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
+            json.dump(settings, f, indent=2)
+    except (IOError, PermissionError):
+        # Gracefully handle read-only filesystems (like Vercel production)
+        print(f"Warning: Could not save settings to {SETTINGS_FILE} (Read-only environment)")
 
 
 def mask_token(token: str) -> str:
