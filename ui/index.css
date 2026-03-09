@@ -594,6 +594,8 @@ body::before {
     font-size: 0.9rem;
     font-family: var(--font-sans);
     color: var(--text-primary);
+    opacity: 0.9;
+    /* Slightly lower opacity for typed text */
     background: var(--bg-input);
     border: 1px solid var(--border-default);
     border-radius: var(--radius-sm);
@@ -607,6 +609,8 @@ body::before {
     border-color: var(--accent-primary);
     background: var(--bg-input-focus);
     box-shadow: 0 0 0 3px var(--accent-primary-glow);
+    opacity: 1;
+    /* Full opacity on focus */
 }
 
 .form-group textarea {
@@ -617,6 +621,8 @@ body::before {
 .form-group input::placeholder,
 .form-group textarea::placeholder {
     color: var(--text-muted);
+    opacity: 0.5;
+    /* Significantly lower opacity for placeholder text */
 }
 
 .form-grid {
