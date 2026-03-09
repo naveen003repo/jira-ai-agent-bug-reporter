@@ -290,7 +290,8 @@ async function analyzeBug() {
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('text/html')) {
             const htmlSnippet = await response.text();
-            throw new Error(`Server returned HTML (Proxy/Firewall interruption?). Snippet: ${htmlSnippet.substring(0, 150)}...`);
+            const snippet = htmlSnippet.substring(0, 1000).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            throw new Error(`Server returned HTML (Interception?). Snippet: ${snippet}...`);
         }
 
         const data = await response.json();
@@ -454,7 +455,8 @@ async function createJiraTicket() {
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('text/html')) {
             const htmlSnippet = await response.text();
-            throw new Error(`Server returned HTML (Proxy/Firewall interruption?). Snippet: ${htmlSnippet.substring(0, 150)}...`);
+            const snippet = htmlSnippet.substring(0, 1000).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            throw new Error(`Server returned HTML (Interception?). Snippet: ${snippet}...`);
         }
 
         const data = await response.json();
@@ -545,7 +547,8 @@ async function saveSettings() {
         if (!response.ok) {
             const errorText = await response.text();
             if (errorText.trim().startsWith('<!DOCTYPE') || errorText.trim().startsWith('<html')) {
-                showToast(`Settings sync failed: Server returned HTML (Proxy?) - ${errorText.substring(0, 100)}...`, 'error');
+                const snippet = errorText.substring(0, 1000).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                showToast(`Settings sync failed: Server returned HTML (Interception?). Snippet: ${snippet}...`, 'error');
             } else {
                 showToast(`Settings sync failed: ${response.statusText}`, 'error');
             }
@@ -631,20 +634,25 @@ async function testConnection() {
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('text/html')) {
             const htmlSnippet = await response.text();
-            throw new Error(`Server returned HTML (Proxy/Firewall interception?). Snippet: ${htmlSnippet.substring(0, 150)}...`);
+            if (htmlSnippet.trim().startsWith('<!DOCTYPE') || htmlSnippet.trim().startsWith('<html')) {
+                const snippet = htmlSnippet.substring(0, 1000).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                showToast(`Connection failed: Server returned HTML (Proxy/WAF interception?). Snippet: ${snippet}...`, 'error');
+            } else {
+                showToast(`Connection failed: ${response.statusText}`, 'error');
+            }
+        } else {
+            const data = await response.json();
+
+            // Show result
+            els.connectionResult.classList.remove('hidden');
+            els.connectionMessage.textContent = data.message;
+            els.connectionMessage.className = `connection-message ${data.success ? 'success' : 'error'}`;
+
+            // PERSIST verification status
+            sessionStorage.setItem(VERIFIED_STORAGE_KEY, data.success ? 'true' : 'false');
+            updateJiraStatus(data.success);
+            showToast(data.message, data.success ? 'success' : 'error');
         }
-
-        const data = await response.json();
-
-        // Show result
-        els.connectionResult.classList.remove('hidden');
-        els.connectionMessage.textContent = data.message;
-        els.connectionMessage.className = `connection-message ${data.success ? 'success' : 'error'}`;
-
-        // PERSIST verification status
-        sessionStorage.setItem(VERIFIED_STORAGE_KEY, data.success ? 'true' : 'false');
-        updateJiraStatus(data.success);
-        showToast(data.message, data.success ? 'success' : 'error');
     } catch (error) {
         els.connectionResult.classList.remove('hidden');
         els.connectionMessage.textContent = `Network error: ${error.message}`;
