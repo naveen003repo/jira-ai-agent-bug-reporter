@@ -8,3 +8,6 @@ __pycache__/
 venv/
 .venv/
 .vercel/
+
+# Test scripts
+test_api.py

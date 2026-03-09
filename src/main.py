@@ -7,10 +7,11 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, Form, UploadFile
-from typing import List
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi import FastAPI, File, Form, UploadFile, Request, HTTPException
+from typing import List, Optional
+from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
 from src.config import load_settings, save_settings, get_masked_settings
 from src.groq_client import analyze_bug
@@ -20,6 +21,21 @@ from src.jira_client import test_connection, create_issue
 load_dotenv(Path(__file__).parent.parent / ".env")
 
 app = FastAPI(title="BugPilot AI Agent", version="1.0.0")
+
+# ─── Data Models ─────────────────────────────────────────────────────────────
+
+class JIRAConfig(BaseModel):
+    jira_url: Optional[str] = ""
+    jira_email: Optional[str] = ""
+    jira_api_token: Optional[str] = ""
+    jira_project: Optional[str] = ""
+
+class SettingsConfig(BaseModel):
+    groq_api_key: Optional[str] = ""
+    jira_url: Optional[str] = ""
+    jira_email: Optional[str] = ""
+    jira_api_token: Optional[str] = ""
+    jira_project: Optional[str] = ""
 
 # Mount static files (CSS, JS)
 UI_DIR = Path(__file__).parent.parent / "ui"
@@ -44,13 +60,7 @@ async def get_settings():
 
 
 @app.post("/api/settings")
-async def update_settings(
-    groq_api_key: str = Form(""),
-    jira_url: str = Form(""),
-    jira_email: str = Form(""),
-    jira_api_token: str = Form(""),
-    jira_project: str = Form(""),
-):
+async def update_settings(config: SettingsConfig):
     """Save settings. All fields are written; empty string clears a value.
     Masked placeholder values (starting with '*' but not '*CLEAR*') are ignored
     so they don't overwrite the real stored secret.
@@ -63,11 +73,12 @@ async def update_settings(
             return
         current[key] = value
 
-    _apply("groq_api_key", groq_api_key)
-    _apply("jira_url", jira_url)
-    _apply("jira_email", jira_email)
-    _apply("jira_api_token", jira_api_token)
-    _apply("jira_project", jira_project)
+    if config.groq_api_key is not None: _apply("groq_api_key", config.groq_api_key)
+    if config.jira_url is not None: _apply("jira_url", config.jira_url)
+    if config.jira_email is not None: _apply("jira_email", config.jira_email)
+    if config.jira_api_token is not None: _apply("jira_api_token", config.jira_api_token)
+    if config.jira_project is not None: _apply("jira_project", config.jira_project)
+    
     current["jira_issue_type"] = "Bug"
 
     save_settings(current)
@@ -77,20 +88,15 @@ async def update_settings(
 # ─── JIRA Connection Test ────────────────────────────────────────────────────
 
 @app.post("/api/test-connection")
-async def api_test_connection(
-    jira_url: str = Form(""),
-    jira_email: str = Form(""),
-    jira_api_token: str = Form(""),
-    jira_project: str = Form(""),
-):
+async def api_test_connection(config: JIRAConfig):
     """Test JIRA connection using provided credentials (or saved if omitted)."""
     settings = load_settings()
 
     # Priority: 1. Request Body, 2. Server Environment Variables
-    final_url = jira_url or settings.get("jira_url", "")
-    final_email = jira_email or settings.get("jira_email", "")
-    final_token = jira_api_token
-    final_project = jira_project or settings.get("jira_project", "")
+    final_url = config.jira_url or settings.get("jira_url", "")
+    final_email = config.jira_email or settings.get("jira_email", "")
+    final_token = config.jira_api_token
+    final_project = config.jira_project or settings.get("jira_project", "")
 
     # If the token is masked (contains '*') or *OMIT*, use the server's saved token
     if not final_token or final_token == "*OMIT*" or "*" in final_token:

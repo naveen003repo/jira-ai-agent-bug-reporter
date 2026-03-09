@@ -19,6 +19,7 @@ const state = {
 };
 
 const SETTINGS_STORAGE_KEY = 'bugpilot-settings';
+const VERIFIED_STORAGE_KEY = 'bugpilot-jira-verified';
 
 // ─── DOM Elements ─────────────────────────────────────────────────────────────
 const $ = (sel) => document.querySelector(sel);
@@ -285,6 +286,13 @@ async function analyzeBug() {
             body: formData,
         });
 
+        // ── Check for HTML response (Proxy Interception) ──
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('text/html')) {
+            const htmlSnippet = await response.text();
+            throw new Error(`Server returned HTML (Proxy/Firewall interruption?). Snippet: ${htmlSnippet.substring(0, 150)}...`);
+        }
+
         const data = await response.json();
         clearInterval(progressInterval);
 
@@ -442,6 +450,13 @@ async function createJiraTicket() {
             body: formData,
         });
 
+        // ── Check for HTML response (Proxy Interception) ──
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('text/html')) {
+            const htmlSnippet = await response.text();
+            throw new Error(`Server returned HTML (Proxy/Firewall interruption?). Snippet: ${htmlSnippet.substring(0, 150)}...`);
+        }
+
         const data = await response.json();
 
         if (data.success) {
@@ -486,9 +501,9 @@ async function loadSettings() {
         if (els.settingGroqKey) els.settingGroqKey.value = settings.groq_api_key || '';
         if (els.settingJiraToken) els.settingJiraToken.value = settings.jira_api_token || '';
 
-        // Update JIRA status badge
-        const isJiraConfigured = !!(settings.jira_url && settings.jira_email && settings.jira_api_token && settings.jira_project);
-        updateJiraStatus(isJiraConfigured);
+        // Update JIRA status badge based on VERIFICATION, not just configuration
+        const isVerified = localStorage.getItem(VERIFIED_STORAGE_KEY) === 'true';
+        updateJiraStatus(isVerified);
     } catch (error) {
         console.error('Failed to load settings:', error);
     }
@@ -521,16 +536,25 @@ async function saveSettings() {
         state.settings = newSettings;
 
         // 2. Also notify backend (Optional, helps server-side connection testing)
-        const formData = new FormData();
-        Object.entries(newSettings).forEach(([key, val]) => formData.append(key, val));
-
-        await fetch('/api/settings', {
+        const response = await fetch('/api/settings', {
             method: 'POST',
-            body: formData,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newSettings),
         });
 
-        showToast('Settings saved to browser successfully!', 'success');
-        updateJiraStatus(true);
+        if (!response.ok) {
+            const errorText = await response.text();
+            if (errorText.trim().startsWith('<!DOCTYPE') || errorText.trim().startsWith('<html')) {
+                showToast(`Settings sync failed: Server returned HTML (Proxy?) - ${errorText.substring(0, 100)}...`, 'error');
+            } else {
+                showToast(`Settings sync failed: ${response.statusText}`, 'error');
+            }
+        } else {
+            showToast('Settings saved to browser successfully!', 'success');
+            // Reset verification status when settings change
+            localStorage.setItem(VERIFIED_STORAGE_KEY, 'false');
+            updateJiraStatus(false);
+        }
         return true;
     } catch (error) {
         showToast(`Error saving settings: ${error.message}`, 'error');
@@ -556,17 +580,23 @@ async function resetSettings() {
 
     // 2. Clear localStorage
     localStorage.removeItem(SETTINGS_STORAGE_KEY);
+    localStorage.removeItem(VERIFIED_STORAGE_KEY);
     state.settings = {};
 
     // 3. Clear server side if possible
     try {
-        const formData = new FormData();
-        formData.append('groq_api_key', '');
-        formData.append('jira_url', '');
-        formData.append('jira_email', '');
-        formData.append('jira_api_token', '');
-        formData.append('jira_project', '');
-        await fetch('/api/settings', { method: 'POST', body: formData });
+        const clearSettings = {
+            groq_api_key: '',
+            jira_url: '',
+            jira_email: '',
+            jira_api_token: '',
+            jira_project: ''
+        };
+        await fetch('/api/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(clearSettings)
+        });
     } catch (e) { }
 
     showToast('Settings reset successfully.', 'info');
@@ -587,16 +617,26 @@ async function testConnection() {
     els.testConnectionBtn.innerHTML = `<div class="spinner" style="width:18px;height:18px;border-width:2px;"></div> Testing...`;
 
     try {
-        const formData = new FormData();
-        formData.append('jira_url', els.settingJiraUrl.value.trim());
-        formData.append('jira_email', els.settingJiraEmail.value.trim());
-        formData.append('jira_api_token', els.settingJiraToken.value.trim());
-        formData.append('jira_project', els.settingJiraProject.value.trim());
+        const connectionData = {
+            jira_url: els.settingJiraUrl.value.trim(),
+            jira_email: els.settingJiraEmail.value.trim(),
+            jira_api_token: els.settingJiraToken.value.trim(),
+            jira_project: els.settingJiraProject.value.trim()
+        };
 
         const response = await fetch('/api/test-connection', {
             method: 'POST',
-            body: formData,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(connectionData),
         });
+
+        // ── Check for HTML response (Proxy Interception) ──
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('text/html')) {
+            const htmlSnippet = await response.text();
+            throw new Error(`Server returned HTML (Proxy/Firewall interception?). Snippet: ${htmlSnippet.substring(0, 150)}...`);
+        }
+
         const data = await response.json();
 
         // Show result
@@ -604,6 +644,8 @@ async function testConnection() {
         els.connectionMessage.textContent = data.message;
         els.connectionMessage.className = `connection-message ${data.success ? 'success' : 'error'}`;
 
+        // PERSIST verification status
+        localStorage.setItem(VERIFIED_STORAGE_KEY, data.success ? 'true' : 'false');
         updateJiraStatus(data.success);
         showToast(data.message, data.success ? 'success' : 'error');
     } catch (error) {
@@ -636,14 +678,12 @@ if (els.resetSettingsBtn) {
     els.resetSettingsBtn.addEventListener('click', resetSettings);
 }
 
-// When any JIRA field is cleared, reflect that in the badge immediately
+// When any JIRA field is changed, invalidate the previous verification status
 const jiraInputs = [els.settingJiraUrl, els.settingJiraEmail, els.settingJiraToken, els.settingJiraProject];
 jiraInputs.forEach(input => {
     input.addEventListener('input', () => {
-        const allFilled = jiraInputs.every(inp => inp.value && inp.value.trim() !== '');
-        if (!allFilled) {
-            updateJiraStatus(false);
-        }
+        localStorage.setItem(VERIFIED_STORAGE_KEY, 'false');
+        updateJiraStatus(false);
     });
 });
 
