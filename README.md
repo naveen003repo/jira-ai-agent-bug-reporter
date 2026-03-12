@@ -37,13 +37,17 @@ graph LR
 
 ### 1. Prerequisites
 - Python 3.8+
+- Node.js (v18+ recommended)
 - A [Groq API Key](https://console.groq.com/)
 - A JIRA account ([API Token](https://id.atlassian.com/manage-profile/security/api-tokens), Email, and Project Key)
 
 ### 2. Installation
 ```bash
-# Install dependencies
+# Install Python dependencies
 pip install -r requirements.txt
+
+# Install Node dependencies (if applicable/required for UI tooling)
+npm install
 ```
 
 ### 3. Configuration
