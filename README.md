@@ -73,9 +73,4 @@ For hosting the app on **GitHub** and **Vercel**, please refer to the [Deploymen
 - **Frontend**: Shadow DOM-less Vanilla JS, Modern CSS (Flexbox/Grid), Glassmorphism.
 - **AI**: LLaMA 4 Scout (via Groq).
 
-## ⚖️ License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
 *Built with ❤️ for better QA workflows.*
