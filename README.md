@@ -24,6 +24,7 @@ graph LR
 
 ## ✨ Features
 
+- **Cross-Platform Support**: Analyzes both **Web** and **Mobile** application UI screenshots with equal accuracy.
 - **AI Bug Analysis**: Uses LLaMA 4 Scout Vision (via Groq) to analyze multiple screenshots simultaneously and extract technical details.
 - **Multiple Screenshots**: Upload and analyze multiple images for a single bug report.
 - **Multi-User Support (BYOK)**: Settings are stored in your browser's local storage. Teammates and clients can use the same hosted app with their own separate JIRA and Groq keys.
